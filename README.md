@@ -5,7 +5,7 @@
 
 <!-- badges: start -->
 
-[![Lifecycle](https://img.shields.io/badge/lifecycle-maturing-blue.svg)](https://www.tidyverse.org/lifecycle/#maturing)
+[![Lifecycle](https://lifecycle.r-lib.org/articles/figures/lifecycle-stable.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 [![R build
 status](https://github.com/nbenn/mockthat/workflows/build/badge.svg)](https://github.com/nbenn/mockthat/actions?query=workflow%3Abuild)
 [![R check
@@ -157,14 +157,16 @@ mock_args(mk)
 In addition to `with_mock()`, `mockthat` also offers a `local_mock()`
 function, again, mimicking the deprecated `testthat` function, which
 keeps the mocks in place for the life-time of the environment passed as
-`local_env` argument. Mock objects as shown above are created (and
-returned invisibly) for all non-function objects passed as `...`.
+`local_env` argument (or if called from the global environment, until
+`withr::deferred_run()` is executed). Mock objects as shown above are
+created (and returned invisibly) for all non-function objects passed as
+`...`.
 
 ``` r
-mk <- local_mock(`curl::curl` = "mocked request")
+tmp <- new.env()
+mk <- local_mock(`curl::curl` = "mocked request", local_env = tmp)
 dl(url)
 #> [1] "mocked request"
-
-mock_args(mk, "url")
+mock_arg(mk, "url")
 #> [1] "https://eu.httpbin.org/get?foo=123"
 ```

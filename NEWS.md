@@ -1,3 +1,11 @@
+# mockthat 0.2.6
+
+* Fix return objects with length > 1
+
+# mockthat 0.2.5
+
+* Fix mocking imported functions
+
 # mockthat 0.2.4
 
 * CRAN re-submission now with minor fix of hard-coding base pkg names as

@@ -3,10 +3,6 @@
 \name{with_mock}
 \alias{with_mock}
 \alias{local_mock}
-\alias{mock}
-\alias{mock_call}
-\alias{mock_args}
-\alias{mock_n_called}
 \title{Mock functions in a package.}
 \usage{
 with_mock(..., mock_env = pkg_env(), eval_env = parent.frame())
@@ -17,45 +13,27 @@ local_mock(
   eval_env = parent.frame(),
   local_env = eval_env
 )
-
-mock(expr, env = parent.frame())
-
-mock_call(x, call_no = mock_n_called(x))
-
-mock_args(x, arg = NULL, call_no = mock_n_called(x))
-
-mock_n_called(x)
 }
 \arguments{
 \item{...}{Named parameters redefine mocked functions, unnamed parameters
 will be evaluated after mocking the functions.}
 
 \item{mock_env}{The environment in which to patch the functions,
-defaults to the top-level environment. A string is interpreted as package
+defaults to either the package namespace when the environment variable
+\code{TESTTHAT_PKG} is set pr the calling environment. A string is interpreted
+as package
 name.}
 
 \item{eval_env}{Environment in which expressions passed as \code{...} are
-evaluated, defaults to \code{\link[=parent.frame]{parent.frame()}}.}
+evaluated, defaults to \code{\link[base:sys.parent]{base::parent.frame()}}.}
 
-\item{local_env}{Passed to \code{\link[withr:defer]{withr::defer()}} as \code{envir} argument}
-
-\item{expr}{Expression to be used as body of the function to be mocked.}
-
-\item{env}{Environment used as ancestor to the mock function environment.}
-
-\item{x}{Object of class \code{mock_fun} to be queried for call and argument
-information.}
-
-\item{call_no}{The call number of interest (in case the function was called
-multiple times).}
-
-\item{arg}{String-valued argument name to be retrieved.}
+\item{local_env}{Passed to \code{\link[withr:defer]{withr::defer()}} as \code{envir} argument (defaults
+to the values passed as \code{eval_env})}
 }
 \value{
-The result of the last unnamed argument passed as \code{...} (evaluated
-in the environment passed as \code{eval_env}) in the case of \code{local_mock()} and
-a list of functions or \code{mock_fun} objects (invisibly) in the case of
-\code{local_mock()}.
+The result of the last unnamed argument passed as \code{...} (evaluated in the
+environment passed as \code{eval_env}) in the case of \code{local_mock()} and a list
+of functions or \code{mock_fun} objects (invisibly) for calls to \code{local_mock()}.
 }
 \description{
 Mocking allows you to temporary replace the implementation of functions
@@ -65,10 +43,38 @@ not be available when testing.
 
 Up until recently, such capability was offered via \code{\link[testthat:with_mock]{testthat::with_mock()}},
 but with release of version 3.0.0 and introduction of edition 3, this was
-deprecated from testthat, leaving it to third party packages to replace this
-feature. This mocking implementation is powered by
-\code{\link[utils:getFromNamespace]{utils::assignInNamespace()}} and therefore, caveats outlined in the
-corresponding documentation apply here too.
+deprecated from 'testthat', leaving it to third party packages to replace
+this feature. Powered by \code{\link[utils:getFromNamespace]{utils::assignInNamespace()}}, this mocking
+implementation can be used to stub out both exported and non-exported
+functions from a package, as well as functions explicitly imported from
+other packages using either \code{importFrom} directives or namespaced function
+calls using \code{::}.
+}
+\details{
+Borrowing the API from the now-deprecated \code{\link[testthat:with_mock]{testthat::with_mock()}}, named
+arguments passed as \code{...} are used to define functions to be mocked, where
+names specify the target functions and the arguments themselves are used as
+replacement functions. Unnamed arguments passed as \code{...} will be evaluated
+in the environment specified as \code{eval_env} using the mocked functions. On
+exit of \code{with_mock()}, the mocked functions are reverted to their original
+state.
+
+Replacement functions can either be specified as complete functions, or as
+either quoted expressions, subsequently used as function body or objects
+used as return values. If functions are created from return values or
+complete function bodies, they inherit the signatures from the respective
+functions they are used to mock, alongside the ability to keep track of
+how they are subsequently called. A constructor for such mock-objects is
+available as \code{mock()}, which quotes the expression passed as \code{expr}.
+
+If mocking is desirable for multiple separate calls to the function being
+tested, \code{local_mock()} is available, which holds onto the mocked state for
+the lifetime of the environment passed as \code{local_env} using
+\code{\link[withr:defer]{withr::defer()}}. Unlike \code{with_mock()}, which returns the result of
+evaluating the last unnamed argument passed as \code{...}, \code{local_mock()}
+(invisibly) returns the functions used for mocking, which if not fully
+specified as functions, will be mock-objects described in the previous
+paragraph.
 }
 \examples{
 
@@ -114,17 +120,11 @@ with_mock(
   mock_env = "jsonlite"
 )
 
-mk <- mock("mocked request")
 dl <- function(x) curl::curl(x)
 
-with_mock(`curl::curl` = mk, dl(url))
-
-mock_call(mk)
-mock_args(mk)
-
-mk <- local_mock(`curl::curl` = "mocked request")
-dl(url)
-
-mock_args(mk, "url")
+local({
+  mk <- local_mock(`curl::curl` = "mocked request")
+  list(dl(url), mock_arg(mk, "url"))
+})
 
 }
