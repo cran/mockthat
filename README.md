@@ -5,7 +5,7 @@
 
 <!-- badges: start -->
 
-[![Lifecycle](https://lifecycle.r-lib.org/articles/figures/lifecycle-stable.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
+[![Lifecycle](https://img.shields.io/badge/lifecycle-stable-brightgreen.svg)](https://lifecycle.r-lib.org/articles/stages.html#stable)
 [![R build
 status](https://github.com/nbenn/mockthat/workflows/build/badge.svg)](https://github.com/nbenn/mockthat/actions?query=workflow%3Abuild)
 [![R check
@@ -15,7 +15,7 @@ status](https://github.com/nbenn/mockthat/workflows/pkgdown/badge.svg)](https://
 [![covr
 status](https://github.com/nbenn/mockthat/workflows/coverage/badge.svg)](https://github.com/nbenn/mockthat/actions?query=workflow%3Acoverage)
 [![Codecov test
-coverage](https://codecov.io/gh/nbenn/mockthat/branch/master/graph/badge.svg?token=9v2gSCz5K5)](https://codecov.io/gh/nbenn/mockthat)
+coverage](https://codecov.io/gh/nbenn/mockthat/branch/master/graph/badge.svg?token=9v2gSCz5K5)](https://app.codecov.io/gh/nbenn/mockthat)
 <!-- badges: end -->
 
 With version 3.0.0 of `testthat`, mocking capabilities provided by
@@ -52,14 +52,18 @@ or potentially even part of a downstream dependency) in order to cope
 with limited infrastructure in testing environments (for example absence
 of a live Internet connection).
 
-The function
-[`jsonlite::fromJSON()`](https://rdrr.io/cran/jsonlite/man/fromJSON.html),
-for example, internally calls
-[`curl::curl()`](https://rdrr.io/cran/curl/man/curl.html) when the value
-passed as `txt` argument is a string that resembles an URL. In order to
-no longer be reliant on an Internet connection, the function
-`curl::curl()` can be substituted with a stub that simply returns a
-constant.
+For a function `download_data()` implemented as
+
+``` r
+download_data <- function(url) {
+  curl::curl_fetch_memory(url)
+}
+```
+
+we do not want to have to rely on a live internet connection for writing
+a unit test. With help of `mockthat`, we can substitute
+[`curl::curl_fetch_memory()`](https://rdrr.io/cran/curl/man/curl_fetch.html)
+with a stub that simply returns a constant.
 
 ``` r
 library(mockthat)
@@ -67,10 +71,10 @@ library(mockthat)
 url <- "https://eu.httpbin.org/get?foo=123"
 
 with_mock(
-  `curl::curl` = function(...) '["mocked request"]',
-  jsonlite::fromJSON(url)
+  `curl::curl_fetch_memory` = function(...) '["mocked request"]',
+  download_data(url)
 )
-#> [1] "mocked request"
+#> [1] "[\"mocked request\"]"
 ```
 
 As mentioned above, the main point of differentiation of `mockthat` over
@@ -104,14 +108,17 @@ mockthat::with_mock(
 ```
 
 This is not possible with the current implementation of
-[`mockr::with_mock()`](https://krlmlr.github.io/mockr/reference/with_mock.html).
+[`mockr::with_mock()`](https://krlmlr.github.io/mockr/reference/local_mock.html).
 
 ``` r
 mockr::with_mock(
   foo = function(x) "bar",
   met(x)
 )
-#> Error in foo(x): foo
+#> Warning: Replacing functions in evaluation environment: `foo()`
+#> Warning: The code passed to `with_mock()` must be a braced expression to get
+#> accurate file-line information for failures.
+#> [1] "bar"
 ```
 
 And with the current API of

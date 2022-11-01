@@ -21,9 +21,13 @@
 #' arguments passed as `...` are used to define functions to be mocked, where
 #' names specify the target functions and the arguments themselves are used as
 #' replacement functions. Unnamed arguments passed as `...` will be evaluated
-#' in the environment specified as `eval_env` using the mocked functions. On
-#' exit of `with_mock()`, the mocked functions are reverted to their original
-#' state.
+#' in the environment specified as `eval_env` using the mocked functions.
+#' Functions to be stubbed should be specified as they would be used in package
+#' core. This means that when a function from a third party package is
+#' imported, prefixing the function name with `pkg_name::` will not give the
+#' desired result. Conversely, if the function is not imported, the package
+#' prefix is of course required. On exit of `with_mock()`, the mocked functions
+#' are reverted to their original state.
 #'
 #' Replacement functions can either be specified as complete functions, or as
 #' either quoted expressions, subsequently used as function body or objects
@@ -69,31 +73,9 @@
 #'   dl_fun(url)
 #' )
 #'
-#' json <- function(...) '["mocked request"]'
-#'
 #' with_mock(
-#'   `curl::curl` = json,
-#'   jsonlite::fromJSON(url)
-#' )
-#'
-#' with_mock(
-#'   `curl::curl` = '["mocked request"]',
-#'   jsonlite::fromJSON(url)
-#' )
-#'
-#' with_mock(
-#'   `curl::curl` = quote({
-#'     x <- "mocked request"
-#'     paste0('["', x, '"]')
-#'   }),
-#'   jsonlite::fromJSON(url)
-#' )
-#'
-#' with_mock(
-#'   `curl::curl` = json,
-#'   parse_and_simplify = function(txt, ...) gsub('\\[?\\"\\]?', "", txt),
-#'   jsonlite::fromJSON(url),
-#'   mock_env = "jsonlite"
+#'   `curl::curl_fetch_memory` = "mocked request",
+#'   dl_fun(url)
 #' )
 #'
 #' dl <- function(x) curl::curl(x)
@@ -337,6 +319,11 @@ do_assign <- function(name, val, env) {
     utils::assignInNamespace(name, val, env)
 
   } else {
+
+    if (rlang::env_binding_are_locked(env, name)) {
+      rlang::env_binding_unlock(env, name)
+      on.exit(rlang::env_binding_lock(env, name))
+    }
 
     assign(name, val, envir = env)
   }
